@@ -1,0 +1,76 @@
+/Users/leeliang/Desktop/socialGeneralization-main/project/modelFit.py:139: RuntimeWarning: divide by zero encountered in log
+  nll = nll-np.log(policy[chosen[i].astype(int)]) #negative log likelihood for this trial
+Starting ASG-only fitting for group 55
+Group 55: 4 agents, 8 rounds, 15 trials per round
+Group 55, Agent 1, ASG model, Round 0
+Round 1 completed
+Group 55, Agent 1, ASG model, Round 1
+Round 2 completed
+Group 55, Agent 1, ASG model, Round 2
+Round 3 completed
+Group 55, Agent 1, ASG model, Round 3
+Round 4 completed
+Group 55, Agent 1, ASG model, Round 4
+Round 5 completed
+Group 55, Agent 1, ASG model, Round 5
+Round 6 completed
+Group 55, Agent 1, ASG model, Round 6
+Round 7 completed
+Group 55, Agent 1, ASG model, Round 7
+Round 8 completed
+Agent 1 completed. ASG fit: 279.03
+Group 55, Agent 2, ASG model, Round 0
+Round 1 completed
+Group 55, Agent 2, ASG model, Round 1
+Round 2 completed
+Group 55, Agent 2, ASG model, Round 2
+Round 3 completed
+Group 55, Agent 2, ASG model, Round 3
+Round 4 completed
+Group 55, Agent 2, ASG model, Round 4
+Round 5 completed
+Group 55, Agent 2, ASG model, Round 5
+Round 6 completed
+Group 55, Agent 2, ASG model, Round 6
+Round 7 completed
+Group 55, Agent 2, ASG model, Round 7
+Round 8 completed
+Agent 2 completed. ASG fit: 292.11
+Group 55, Agent 3, ASG model, Round 0
+Round 1 completed
+Group 55, Agent 3, ASG model, Round 1
+Round 2 completed
+Group 55, Agent 3, ASG model, Round 2
+Round 3 completed
+Group 55, Agent 3, ASG model, Round 3
+Round 4 completed
+Group 55, Agent 3, ASG model, Round 4
+Round 5 completed
+Group 55, Agent 3, ASG model, Round 5
+Round 6 completed
+Group 55, Agent 3, ASG model, Round 6
+Round 7 completed
+Group 55, Agent 3, ASG model, Round 7
+Round 8 completed
+Agent 3 completed. ASG fit: 267.49
+Group 55, Agent 4, ASG model, Round 0
+Round 1 completed
+Group 55, Agent 4, ASG model, Round 1
+Round 2 completed
+Group 55, Agent 4, ASG model, Round 2
+Round 3 completed
+Group 55, Agent 4, ASG model, Round 3
+Round 4 completed
+Group 55, Agent 4, ASG model, Round 4
+Round 5 completed
+Group 55, Agent 4, ASG model, Round 5
+Round 6 completed
+Group 55, Agent 4, ASG model, Round 6
+Round 7 completed
+Group 55, Agent 4, ASG model, Round 7
+Round 8 completed
+Agent 4 completed. ASG fit: 292.04
+Group 55 ASG-only fitting completed!
+Results saved to: ./Data/fitting_data/ASG_only/
+Total ASG parameters fitted: 32
+Total ASG nLL values: 32

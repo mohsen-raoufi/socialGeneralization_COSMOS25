@@ -1,0 +1,74 @@
+Starting ASG-only fitting for group 29
+Group 29: 4 agents, 8 rounds, 15 trials per round
+Group 29, Agent 1, ASG model, Round 0
+Round 1 completed
+Group 29, Agent 1, ASG model, Round 1
+Round 2 completed
+Group 29, Agent 1, ASG model, Round 2
+Round 3 completed
+Group 29, Agent 1, ASG model, Round 3
+Round 4 completed
+Group 29, Agent 1, ASG model, Round 4
+Round 5 completed
+Group 29, Agent 1, ASG model, Round 5
+Round 6 completed
+Group 29, Agent 1, ASG model, Round 6
+Round 7 completed
+Group 29, Agent 1, ASG model, Round 7
+Round 8 completed
+Agent 1 completed. ASG fit: 382.20
+Group 29, Agent 2, ASG model, Round 0
+Round 1 completed
+Group 29, Agent 2, ASG model, Round 1
+Round 2 completed
+Group 29, Agent 2, ASG model, Round 2
+Round 3 completed
+Group 29, Agent 2, ASG model, Round 3
+Round 4 completed
+Group 29, Agent 2, ASG model, Round 4
+Round 5 completed
+Group 29, Agent 2, ASG model, Round 5
+Round 6 completed
+Group 29, Agent 2, ASG model, Round 6
+Round 7 completed
+Group 29, Agent 2, ASG model, Round 7
+Round 8 completed
+Agent 2 completed. ASG fit: 456.58
+Group 29, Agent 3, ASG model, Round 0
+Round 1 completed
+Group 29, Agent 3, ASG model, Round 1
+Round 2 completed
+Group 29, Agent 3, ASG model, Round 2
+Round 3 completed
+Group 29, Agent 3, ASG model, Round 3
+Round 4 completed
+Group 29, Agent 3, ASG model, Round 4
+Round 5 completed
+Group 29, Agent 3, ASG model, Round 5
+Round 6 completed
+Group 29, Agent 3, ASG model, Round 6
+Round 7 completed
+Group 29, Agent 3, ASG model, Round 7
+Round 8 completed
+Agent 3 completed. ASG fit: 411.15
+Group 29, Agent 4, ASG model, Round 0
+Round 1 completed
+Group 29, Agent 4, ASG model, Round 1
+Round 2 completed
+Group 29, Agent 4, ASG model, Round 2
+Round 3 completed
+Group 29, Agent 4, ASG model, Round 3
+Round 4 completed
+Group 29, Agent 4, ASG model, Round 4
+Round 5 completed
+Group 29, Agent 4, ASG model, Round 5
+Round 6 completed
+Group 29, Agent 4, ASG model, Round 6
+Round 7 completed
+Group 29, Agent 4, ASG model, Round 7
+Round 8 completed
+Agent 4 completed. ASG fit: 403.97
+Group 29 ASG-only fitting completed!
+Results saved to: ./Data/fitting_data/ASG_only/
+Total ASG parameters fitted: 32
+Total ASG nLL values: 32

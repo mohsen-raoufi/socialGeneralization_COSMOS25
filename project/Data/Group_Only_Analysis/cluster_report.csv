@@ -1,0 +1,4 @@
+cluster,n_members,cognitive_label,significant_features_FDR,top_members
+0,40,moderate mixed type,"['eta_eps_soc', 'volatility', 'early_slope', 'mid_stability', 'late_offset']","[{'group': 1.0, 'agent': 3.0}, {'group': 2.0, 'agent': 2.0}]"
+1,87,moderate mixed type,"['eta_eps_soc', 'volatility', 'early_slope', 'mid_stability', 'late_offset']","[{'group': 0.0, 'agent': 2.0}, {'group': 0.0, 'agent': 4.0}]"
+2,5,"fast learning rate, high volatility","['eta_eps_soc', 'volatility', 'early_slope', 'mid_stability', 'late_offset']","[{'group': 0.0, 'agent': 1.0}, {'group': 0.0, 'agent': 3.0}]"
