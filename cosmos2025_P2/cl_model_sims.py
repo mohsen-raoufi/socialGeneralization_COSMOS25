@@ -11,8 +11,7 @@ for file in json_files:
     f=open(os.path.join(path, file))
     EnvList.append(json.load(f))
 
-groups = 10
-allParams = ms.param_gen(4*10, 1, [6, 0, 0, 0]*10)
+allParams = ms.param_gen(4, 10, [6, 0, 0, 0])
 rounds = 20
 shor = 40
 result = ms.model_sim(allParams, EnvList, rounds, shor)
