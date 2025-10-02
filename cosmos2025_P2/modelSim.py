@@ -6,6 +6,7 @@ following original Alex structure
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
+from scipy.stats import invwishart
 
 def ucb(pred,beta=0.5): 
     """    
@@ -477,4 +478,128 @@ def roger(nAgents,nGroups,socModel,nSoc):
             pars = dict(zip(par_names,par[ag,:]))
             all_pars[g].append(pars)
     return(all_pars)
+
+def estimate_correlation_bayesian(focal_gpr_output, partner_rewards, partner_locations, 
+                                 kappa0=1e-3, m0=None, nu0=4, S0=None, w_max=100):
+    """
+    Estimates correlation between focal agent's GPR predictions and partner agent's rewards
+    using Bayesian Normal-Inverse-Wishart prior.
+    
+    Parameters
+    ----------
+    focal_gpr_output : tuple
+        (mean, variance) from GPR for all locations. mean and variance are arrays of length n_locations.
+    partner_rewards : array-like
+        Observed rewards for partner agent at each trial.
+    partner_locations : array-like  
+        Location indices visited by partner agent at each trial.
+    kappa0 : float, optional
+        Prior strength on mean (pseudo-sample size). Default is 1e-3 (weak prior).
+    m0 : array-like, optional
+        Prior mean vector. Default is [0, 0].
+    nu0 : float, optional
+        Prior degrees of freedom for covariance. Must be > 3. Default is 4.
+    S0 : array-like, optional
+        Prior scale matrix. Default is identity matrix.
+    w_max : float, optional
+        Maximum weight to avoid extreme values. Default is 100.
+        
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'correlation': estimated correlation coefficient
+        - 'covariance_matrix': posterior mean covariance matrix
+        - 'mean_vector': posterior mean vector
+        - 'n_observations': number of observations used
+        - 'posterior_params': (kappa, m, nu, S) for further updates
+    """
+    
+    # Extract GPR outputs
+    focal_means, focal_variances = focal_gpr_output
+    
+    # Convert to numpy arrays
+    partner_rewards = np.array(partner_rewards)
+    partner_locations = np.array(partner_locations, dtype=int)
+    focal_means = np.array(focal_means)
+    focal_variances = np.array(focal_variances)
+    
+    # Validate inputs
+    if len(partner_rewards) != len(partner_locations):
+        raise ValueError("partner_rewards and partner_locations must have same length")
+    
+    if len(focal_means) != len(focal_variances):
+        raise ValueError("focal_means and focal_variances must have same length")
+    
+    # Set default prior parameters
+    if m0 is None:
+        m0 = np.array([0.0, 0.0])
+    else:
+        m0 = np.array(m0)
+    
+    if S0 is None:
+        S0 = np.eye(2)
+    else:
+        S0 = np.array(S0)
+    
+    # Initialize posterior parameters with prior
+    kappa = kappa0
+    m = m0.copy()
+    nu = nu0
+    S = S0.copy()
+    
+    # Process each observation
+    n_obs = len(partner_rewards)
+    
+    for t in range(n_obs):
+        # Get focal's prediction at partner's location
+        if partner_locations[t] >= len(focal_means):
+            continue  # Skip if location index is out of bounds
+            
+        x_t = focal_means[partner_locations[t]]  # Focal's posterior mean
+        y_t = partner_rewards[t]  # Partner's observed reward
+        
+        # Create observation vector
+        z_t = np.array([x_t, y_t])
+        
+        # Calculate weight based on focal's uncertainty
+        sigma_focal = np.sqrt(focal_variances[partner_locations[t]])
+        if sigma_focal > 0:
+            w = min(1.0 / (sigma_focal**2), w_max)
+        else:
+            w = 1.0  # Default weight if variance is zero
+        
+        # Update parameters using NIW update equations
+        kappa_new = kappa + w
+        m_new = (kappa * m + w * z_t) / kappa_new
+        nu_new = nu + w
+        S_new = S + (kappa * w / kappa_new) * np.outer(z_t - m, z_t - m)
+        
+        # Update for next iteration
+        kappa = kappa_new
+        m = m_new
+        nu = nu_new
+        S = S_new
+    
+    # Extract posterior mean covariance matrix
+    if nu > 3:
+        Sigma_bar = S / (nu - 3)
+    else:
+        # If nu <= 3, posterior mean doesn't exist, use mode instead
+        Sigma_bar = S / (nu + 1)
+    
+    # Calculate correlation
+    if Sigma_bar[0, 0] > 0 and Sigma_bar[1, 1] > 0:
+        correlation = Sigma_bar[0, 1] / np.sqrt(Sigma_bar[0, 0] * Sigma_bar[1, 1])
+    else:
+        correlation = 0.0
+    
+    return {
+        'correlation': correlation,
+        'covariance_matrix': Sigma_bar,
+        'mean_vector': m,
+        'n_observations': n_obs,
+        'posterior_params': (kappa, m, nu, S)
+    }
+
     
