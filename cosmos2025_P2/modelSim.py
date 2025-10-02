@@ -249,17 +249,17 @@ def param_gen(nAgents,nGroups,models=None):
         Number of groups.
     models : int, list, or None, optional
         Model specification:
-        - int (0-5): All agents in all groups use this model (homogeneous)
+        - int (0-6): All agents in all groups use this model (homogeneous)
         - list of length nAgents: Each agent in each group uses the model at that index (heterogeneous)
         - None: Random model assignment for each agent
-        0=AS,1=DB,2=VS,3=SG,4=ASG,5=dummy model. The default is None.
+        0=AS,1=DB,2=VS,3=SG,4=ASG,5=dummy model,6=CL (Correlation Learning). The default is None.
         
     Returns
     -------
     List of list of dictionaries as used in model_sim.
 
     """
-    par_names = ["lambda","beta","tau","gamma","alpha","eps_soc","dummy","initial_eps_soc","eta_eps_soc"] #needed for dicts later #
+    par_names = ["lambda","beta","tau","gamma","alpha","eps_soc","dummy","initial_eps_soc","eta_eps_soc","model_type"] #needed for dicts later #
     all_pars = []
     
     for g in range(nGroups):
@@ -272,15 +272,15 @@ def param_gen(nAgents,nGroups,models=None):
         # Determine model assignment for this group
         if models is None:
             # Random assignment for each agent
-            model_assignment = np.random.randint(0,6,(nAgents))
+            model_assignment = np.random.randint(0,7,(nAgents))
         elif isinstance(models, int):
             # Homogeneous: all agents use the same model
-            assert models in range(0,6), "Model has to be between 0 and 5"
+            assert models in range(0,7), "Model has to be between 0 and 6"
             model_assignment = np.ones(nAgents) * models
         elif isinstance(models, (list, np.ndarray)):
             # Heterogeneous: each agent gets its own model
             assert len(models) == nAgents, f"models list must have length {nAgents}"
-            assert all(m in range(0,6) for m in models), "All models must be between 0 and 5"
+            assert all(m in range(0,7) for m in models), "All models must be between 0 and 6"
             model_assignment = np.array(models)
         else:
             raise ValueError("models must be int, list/array, or None")
@@ -299,6 +299,11 @@ def param_gen(nAgents,nGroups,models=None):
                 par[ag,8] = np.random.lognormal(-3,0.5,(1)) #eta_eps_soc
             elif model == 5:
                 par[ag,6] = 1 #dummy variable for a model test
+            elif model == 6: # Correlation Learning model
+                par[ag,5] = np.random.exponential(2,(1)) #eps_soc (base social noise)
+            
+            # Set model_type for all agents
+            par[ag,9] = model
             
             pars = dict(zip(par_names,par[ag,:]))
             all_pars[g].append(pars)
