@@ -2,6 +2,7 @@
 .Rhistory
 .Rapp.history
 .spyproject
+.history
 
 # Session Data files
 .RData
