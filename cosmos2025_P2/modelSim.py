@@ -602,4 +602,204 @@ def estimate_correlation_bayesian(focal_gpr_output, partner_rewards, partner_loc
         'posterior_params': (kappa, m, nu, S)
     }
 
+def get_social_index(focal_agent_idx, all_agents_data, focal_gpr_output, n_agents=4):
+    """
+    Estimates the social index vector δ_soc for a focal agent based on correlations
+    with all partner agents using Bayesian correlation estimation.
+    
+    Parameters
+    ----------
+    focal_agent_idx : int
+        Index of the focal agent (0-based).
+    all_agents_data : dict
+        Dictionary containing data for all agents with keys:
+        - 'choices': array of shape (n_trials, n_agents) - location choices
+        - 'rewards': array of shape (n_trials, n_agents) - observed rewards
+    focal_gpr_output : tuple
+        (mean, variance) from GPR for all locations for the focal agent.
+    n_agents : int, optional
+        Total number of agents. Default is 4.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Social index vector δ_soc of length n_agents where:
+        - δ_soc[0] = 0 (focal agent)
+        - δ_soc[j] = 1 - ρ₁ⱼ² for j ∈ {1, 2, 3} (partners)
+        where ρ₁ⱼ is the correlation between focal and partner j
+    """
+    
+    # Initialize social index vector
+    delta_soc = np.zeros(n_agents)
+    
+    # Extract data
+    choices = all_agents_data['choices']
+    rewards = all_agents_data['rewards']
+    n_trials = len(choices)
+    
+    # For each partner agent (excluding focal)
+    for partner_idx in range(n_agents):
+        if partner_idx == focal_agent_idx:
+            delta_soc[partner_idx] = 0.0  # Focal agent has no social index
+            continue
+            
+        # Get partner's choices and rewards
+        partner_choices = choices[:, partner_idx]
+        partner_rewards = rewards[:, partner_idx]
+        
+        # Estimate correlation between focal and this partner
+        correlation_result = estimate_correlation_bayesian(
+            focal_gpr_output=focal_gpr_output,
+            partner_rewards=partner_rewards,
+            partner_locations=partner_choices
+        )
+        
+        # Extract correlation coefficient
+        rho_1j = correlation_result['correlation']
+        
+        # Calculate δ_soc(j) = 1 - ρ₁ⱼ²
+        # This represents the "unexplained variance" - how much that partner inflates noise
+        delta_soc[partner_idx] = 1.0 - (rho_1j ** 2)
+        
+        # Ensure the value is in [0, 1] range
+        delta_soc[partner_idx] = np.clip(delta_soc[partner_idx], 0.0, 1.0)
+    
+    return delta_soc
+
+def get_adaptive_social_noise(delta_soc_vector, base_eps_soc=1.0, max_eps_soc=10.0):
+    """
+    Converts social index vector to adaptive social noise values.
+    
+    Parameters
+    ----------
+    delta_soc_vector : numpy.ndarray
+        Social index vector δ_soc for one agent.
+    base_eps_soc : float, optional
+        Base social noise parameter. Default is 1.0.
+    max_eps_soc : float, optional
+        Maximum social noise parameter. Default is 10.0.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Adaptive social noise values for each partner.
+    """
+    
+    # Convert social index to noise inflation factors
+    # Higher δ_soc (lower correlation) → higher noise
+    # Lower δ_soc (higher correlation) → lower noise
+    adaptive_noise = base_eps_soc * (1.0 + delta_soc_vector)
+    
+    # Clip to reasonable range
+    adaptive_noise = np.clip(adaptive_noise, base_eps_soc, max_eps_soc)
+    
+    return adaptive_noise
+
+def test_social_index_estimation():
+    """
+    Test function to demonstrate the social index estimation functions.
+    """
+    # Set random seed for reproducibility
+    np.random.seed(42)
+    
+    # Create example data
+    n_agents = 4
+    n_trials = 20
+    grid_size = 25
+    
+    # Generate example choices and rewards
+    choices = np.random.randint(0, grid_size, (n_trials, n_agents))
+    rewards = np.random.normal(0, 1, (n_trials, n_agents))
+    
+    # Create some correlation between agents 0 and 1
+    rewards[:, 1] = 0.7 * rewards[:, 0] + 0.3 * np.random.normal(0, 1, n_trials)
+    
+    # Create some correlation between agents 0 and 2 (negative)
+    rewards[:, 2] = -0.5 * rewards[:, 0] + 0.5 * np.random.normal(0, 1, n_trials)
+    
+    # Agent 3 is independent
+    rewards[:, 3] = np.random.normal(0, 1, n_trials)
+    
+    # Create example GPR outputs (mean and variance for all locations)
+    focal_means = np.random.normal(0, 1, grid_size)
+    focal_variances = np.random.exponential(0.1, grid_size)
+    focal_gpr_output = (focal_means, focal_variances)
+    
+    # Create data dictionary
+    all_agents_data = {
+        'choices': choices,
+        'rewards': rewards
+    }
+    
+    # Test social index estimation for agent 0
+    print("Testing social index estimation for agent 0:")
+    print(f"Choices shape: {choices.shape}")
+    print(f"Rewards shape: {rewards.shape}")
+    
+    delta_soc = get_social_index(
+        focal_agent_idx=0,
+        all_agents_data=all_agents_data,
+        focal_gpr_output=focal_gpr_output,
+        n_agents=n_agents
+    )
+    
+    print(f"Social index vector δ_soc: {delta_soc}")
+    print(f"Interpretation:")
+    print(f"  - δ_soc[0] = {delta_soc[0]:.3f} (focal agent)")
+    print(f"  - δ_soc[1] = {delta_soc[1]:.3f} (partner 1 - should be low due to positive correlation)")
+    print(f"  - δ_soc[2] = {delta_soc[2]:.3f} (partner 2 - should be low due to negative correlation)")
+    print(f"  - δ_soc[3] = {delta_soc[3]:.3f} (partner 3 - should be high due to independence)")
+    
+    # Test adaptive social noise
+    adaptive_noise = get_adaptive_social_noise(delta_soc, base_eps_soc=1.0, max_eps_soc=5.0)
+    print(f"\nAdaptive social noise: {adaptive_noise}")
+    
+    return delta_soc, adaptive_noise
+
+def test_correlation_learning_model():
+    """
+    Test function to demonstrate the new Correlation Learning model.
+    """
+    # Set random seed for reproducibility
+    np.random.seed(42)
+    
+    # Create a simple test with 4 agents, 1 group, 1 round, 10 trials
+    nAgents = 4
+    nGroups = 1
+    rounds = 1
+    shor = 10
+    
+    # Create simple environment
+    gridSize = 9  # 3x3 grid
+    # Create multiple environments for each agent
+    nEnvs = 3
+    envList = [[[{'payoff': np.random.uniform(0, 1)} for _ in range(gridSize)] for _ in range(nEnvs)] for _ in range(nAgents)]
+    
+    # Generate parameters: 1 CL agent (model 6), 3 AS agents (model 0)
+    models = [6, 0, 0, 0]  # Agent 0 is CL, agents 1-3 are AS
+    allParams = param_gen(nAgents, nGroups, models=models)
+    
+    print("Testing Correlation Learning model:")
+    print(f"Agent 0 (CL) parameters: {allParams[0][0]}")
+    print(f"Agent 1 (AS) parameters: {allParams[0][1]}")
+    print(f"Agent 2 (AS) parameters: {allParams[0][2]}")
+    print(f"Agent 3 (AS) parameters: {allParams[0][3]}")
+    
+    # Run simulation
+    try:
+        result = model_sim(allParams, envList, rounds, shor)
+        print(f"Simulation successful! Result shape: {result.shape}")
+        print(f"Columns: {result.columns.tolist()}")
+        
+        # Show some results
+        print("\nFirst few rows of results:")
+        print(result.head())
+        
+        return result
+    except Exception as e:
+        print(f"Simulation failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
     
