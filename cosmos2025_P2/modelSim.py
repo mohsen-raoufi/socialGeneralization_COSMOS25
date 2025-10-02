@@ -112,15 +112,22 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
     eps_soc = []
     initial_eps_soc = []
     eta_eps_soc = []
+    delta_soc = []
     #simulation parameters
     nAgents = len(allParams[0])
     gridSize = len(envList[0][0])
     Xstar = np.array([(x, y) for x in range(np.sqrt(gridSize).astype(int)) for y in range(np.sqrt(gridSize).astype(int))])
+    
+    # Initialize delta_soc storage for each group
+    delta_soc_storage = []
     for g in range(len(allParams)): #iterate over groups
         #get parameters and set up collectors for value and policy
         pars = allParams[g]
         vals = np.zeros((gridSize,nAgents))
         policy = vals = np.zeros((gridSize,nAgents))
+        
+        # Initialize delta_soc storage for this group (agents x trials)
+        group_delta_soc = np.empty((shor, nAgents), dtype=object)
         #sample random set of environments
         envs = np.random.randint(0,len(envList[0]),(rounds)) #change here to use set envs
         for r in range(rounds): 
@@ -132,7 +139,13 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
                 if 'initial_eps_soc' in pars[ag] and pars[ag]['initial_eps_soc'] > 0:
                     pars[ag]['current_eps_soc'] = pars[ag]['initial_eps_soc']
             for t in range(shor):
-                #on each trial, reset prediction
+                # Store previous predictions BEFORE resetting
+                if t > 0:
+                    prev_predictions = prediction.copy()  # Store previous predictions
+                else:
+                    prev_predictions = [None] * nAgents  # Initialize for first trial
+                
+                # Reset prediction for current trial
                 prediction = []
                 if t==0:
                     #First choice is random
@@ -143,6 +156,7 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
                         obs = X[:t,ag] #self observations
                         rewards = Y[:t,ag] #self rewards
                         socIndex = np.zeros_like(obs) #individual info
+                        
                         #social generalization uses social obs in GP
                         if (pars[ag]['eps_soc']>0) or (pars[ag]["dummy"]!=0):
                             obs = np.append(obs, X[:t,np.arange(nAgents)!=ag]) #social observations
@@ -152,11 +166,44 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
                             else:
                                 socIndex = np.append(socIndex, np.ones_like(X[:t,np.arange(nAgents)!=ag])) #otherwise flag as social observations
                        
+                        
                         # For ASG model, use current_eps_soc if available, otherwise use eps_soc
                         current_pars = pars[ag].copy()
                         if 'current_eps_soc' in pars[ag]:
                             current_pars['eps_soc'] = pars[ag]['current_eps_soc']
+                        
                         prediction.append(GPR(Xstar,obs,rewards,socIndex,current_pars,baseEpsilon)) 
+                        
+                        # Handle correlation learning model separately if needed
+                        if pars[ag].get("model_type")==6 and t > 0:
+                            # Correlation Learning model: compute adaptive social indices
+                            # Create data structure for correlation estimation
+                            all_agents_data = {
+                                'choices': X[:t, :],
+                                'rewards': Y[:t, :]
+                            }
+                            
+                            # Get focal agent's GPR output for correlation estimation
+                            if t == 0 or len(prev_predictions) == 0 or prev_predictions[ag] is None:
+                                focal_gpr_output = (np.zeros(gridSize), np.ones(gridSize))
+                            else:
+                                focal_gpr_output = prev_predictions[ag]
+                                                            
+                            delta_soc_values, rho, rho_2 = get_social_index(
+                                focal_agent_idx=ag,
+                                all_agents_data=all_agents_data,
+                                focal_gpr_output=focal_gpr_output,
+                                n_agents=nAgents
+                            )
+                            print(f"delta_soc: {delta_soc_values}")
+                            #print(f"rho: {rho}")
+                            #print(f"rho_2: {rho_2}")
+                            
+                            # Store delta_soc values for this agent and trial
+                            # Store the entire delta_soc_values array as text
+                            group_delta_soc[t, ag] = str(delta_soc_values.tolist())
+
+                        
                         #values from UCB
                         vals[:,ag] = np.squeeze(ucb(prediction[ag],pars[ag]['beta']))
                         #count occurrences of social choices in the previous round
@@ -210,6 +257,9 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
                             # This way, rewards > 0.5 decrease eps_soc (more trust), rewards < 0.5 increase eps_soc (less trust)
                             reward_adjustment = pars[ag]['eta_eps_soc'] * (original_rewards[ag] - 0.5)
                             pars[ag]['current_eps_soc'] = max(0.001, pars[ag]['current_eps_soc'] - reward_adjustment)
+            # Store the delta_soc data for this group and round
+            delta_soc_storage.append(group_delta_soc)
+            
             for ag in range(nAgents):
                 #collect information
                 agent.append(np.ones((shor,1))*ag)
@@ -227,14 +277,15 @@ def model_sim(allParams, envList, rounds, shor, baseEpsilon=.0001, debug = False
                 eps_soc.append(np.ones((shor,1))*pars[ag]['eps_soc'])
                 dummy.append(np.ones((shor,1))*pars[ag]["dummy"])
                 initial_eps_soc.append(np.ones((shor,1))*pars[ag]['initial_eps_soc'])
+                delta_soc.append(group_delta_soc[:,ag].reshape(-1, 1))
                 eta_eps_soc.append(np.ones((shor,1))*pars[ag]['eta_eps_soc'])
     #format dataset
     data = np.column_stack((np.concatenate(agent),np.concatenate(group),np.concatenate(r0und),np.concatenate(env),np.concatenate(trial),
             np.concatenate(choice),np.concatenate(reward),np.concatenate(lambda_ind),
             np.concatenate(beta),np.concatenate(tau),np.concatenate(gamma),np.concatenate(alpha),np.concatenate(eps_soc),np.concatenate(dummy),
-            np.concatenate(initial_eps_soc),np.concatenate(eta_eps_soc)))
+            np.concatenate(initial_eps_soc),np.concatenate(eta_eps_soc),np.concatenate(delta_soc)))
     agentData = pd.DataFrame(data,columns=('agent','group','round','env','trial','choice','reward','lambda','beta',
-                                           'tau','gamma','alpha','eps_soc',"dummy",'initial_eps_soc','eta_eps_soc'))      
+                                           'tau','gamma','alpha','eps_soc',"dummy",'initial_eps_soc','eta_eps_soc','delta_soc'))      
     return(agentData)
     
 def param_gen(nAgents,nGroups,models=None):
@@ -485,7 +536,7 @@ def roger(nAgents,nGroups,socModel,nSoc):
     return(all_pars)
 
 def estimate_correlation_bayesian(focal_gpr_output, partner_rewards, partner_locations, 
-                                 kappa0=1e-3, m0=None, nu0=4, S0=None, w_max=100):
+                                 kappa0=1e-2, m0=None, nu0=10, S0=None, w_max=100):
     """
     Estimates correlation between focal agent's GPR predictions and partner agent's rewards
     using Bayesian Normal-Inverse-Wishart prior.
@@ -593,9 +644,12 @@ def estimate_correlation_bayesian(focal_gpr_output, partner_rewards, partner_loc
         # If nu <= 3, posterior mean doesn't exist, use mode instead
         Sigma_bar = S / (nu + 1)
     
-    # Calculate correlation
+    # Calculate correlation with some smoothing
     if Sigma_bar[0, 0] > 0 and Sigma_bar[1, 1] > 0:
         correlation = Sigma_bar[0, 1] / np.sqrt(Sigma_bar[0, 0] * Sigma_bar[1, 1])
+        # Apply some smoothing to avoid extreme fluctuations
+        # Clip correlation to reasonable range
+        #correlation = np.clip(correlation, -0.8, 0.8)
     else:
         correlation = 0.0
     
@@ -636,6 +690,8 @@ def get_social_index(focal_agent_idx, all_agents_data, focal_gpr_output, n_agent
     
     # Initialize social index vector
     delta_soc = np.zeros(n_agents)
+    rho = np.zeros(n_agents)
+    rho_2 = np.zeros(n_agents)
     
     # Extract data
     choices = all_agents_data['choices']
@@ -646,6 +702,8 @@ def get_social_index(focal_agent_idx, all_agents_data, focal_gpr_output, n_agent
     for partner_idx in range(n_agents):
         if partner_idx == focal_agent_idx:
             delta_soc[partner_idx] = 0.0  # Focal agent has no social index
+            rho[partner_idx] = 0.0
+            rho_2[partner_idx] = 0.0
             continue
             
         # Get partner's choices and rewards
@@ -664,12 +722,18 @@ def get_social_index(focal_agent_idx, all_agents_data, focal_gpr_output, n_agent
         
         # Calculate δ_soc(j) = 1 - ρ₁ⱼ²
         # This represents the "unexplained variance" - how much that partner inflates noise
-        delta_soc[partner_idx] = 1.0 - (rho_1j ** 2)
+        # Add some smoothing to avoid extreme values when correlations are very small
+        rho_squared = rho_1j ** 2
+        # Apply minimum threshold to avoid delta_soc being too close to 1 when correlation is tiny
+        rho_squared = max(rho_squared, 0.0)  # Minimum correlation contribution
+        delta_soc[partner_idx] = 1.0 - rho_squared
+        rho[partner_idx] = rho_1j
+        rho_2[partner_idx] = rho_squared
         
         # Ensure the value is in [0, 1] range
-        delta_soc[partner_idx] = np.clip(delta_soc[partner_idx], 0.0, 1.0)
+        #delta_soc[partner_idx] = np.clip(delta_soc[partner_idx], 0.0, 0.99)
     
-    return delta_soc
+    return [delta_soc, rho, rho_2]
 
 def get_adaptive_social_noise(delta_soc_vector, base_eps_soc=1.0, max_eps_soc=10.0):
     """
